@@ -225,8 +225,8 @@ train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, str
 #' @param metric The evaluation metric used for selecting the best model (e.g., "rmse", "rsq").
 #' @param higher_is_better Logical indicating whether a higher value of the evaluation metric is better.
 #' @return The best model based on the specified evaluation metric.
-#' @importFrom caret selectBest
-#' @importFrom tidymodels select_best
+#' @importFrom tune select_best
+#' @importFrom tune select_best
 #' @export
 select_best_model <- function(results, metric, higher_is_better = TRUE) {
   # Add code here to select the best model based on the specified evaluation metric
@@ -434,7 +434,5 @@ perform_flux_partitioning <- function(processor, method, params) {
 # nighttime_results <- perform_flux_partitioning(my_processor, "sMR", nighttime_params)
 
 
-
-
-
+?XgfRiction::perform_flux_partitioning()
 ##okay and now checking fingerprint plot for GPP Reco and NEE
