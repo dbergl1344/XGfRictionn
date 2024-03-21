@@ -1,3 +1,21 @@
+---
+title: "XGFrictionVignette"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{XGFrictionVignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
 library(roxygen2)
 library(devtools)
 library(REddyProc)
@@ -11,8 +29,11 @@ library(base)
 library(rsample)
 library(caret)
 library(xgboost)
+```
 
 
+
+```{r}
 #' This class represents a processor for XGFriction data.
 #' XGFrictionProcessor Class
 #'
@@ -438,3 +459,10 @@ perform_flux_partitioning <- function(processor, method, params) {
 
 
 ##okay and now checking fingerprint plot for GPP Reco and NEE
+
+```
+
+
+
+
+
