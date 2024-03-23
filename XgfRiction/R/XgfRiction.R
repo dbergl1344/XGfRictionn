@@ -445,5 +445,4 @@ perform_flux_partitioning <- function(processor, method, params) {
 # nighttime_results <- perform_flux_partitioning(my_processor, "sMR", nighttime_params)
 
 
-?XgfRiction::perform_flux_partitioning()
 
