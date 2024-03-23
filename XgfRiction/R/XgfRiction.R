@@ -122,15 +122,18 @@ perform_iqr_filtering <- function(xgfriction_proc, dataframe, variables, thresho
 #' @param nSample Number of samples for estimation
 #' @param probs Probabilities for estimation
 #' @param fill_all Logical indicating whether to fill all gaps
+#' @param seed Seed value for random number generation
 #' @return Updated XGFriction processing object
-#' @importFrom base set.seed
 #' @importFrom REddyProc usGetAnnualSeasonUStarMap
 #' @export
-perform_ustar_gap_fill <- function(processor, dataframe, variable, nSample = 1000L, probs = c(0.05, 0.5, 0.95), fill_all = TRUE) {
+perform_ustar_gap_fill <- function(processor, dataframe, variable, nSample = 1000L, probs = c(0.05, 0.5, 0.95), fill_all = TRUE, seed = NULL) {
   require(stats)
   require(REddyProc)
 
-  base::set.seed(2000)
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
   processor$sEstUstarThresholdDistribution(nSample = nSample, probs = probs)
   uStarTh <- processor$sGetEstimatedUstarThresholdDistribution()
   uStarThAnnual <- usGetAnnualSeasonUStarMap(uStarTh)[-2]
@@ -138,6 +141,8 @@ perform_ustar_gap_fill <- function(processor, dataframe, variable, nSample = 100
   processor$sMDSGapFillAfterUStarDistr(variable, uStarTh = uStarThAnnual, uStarSuffixes = uStarSuffixes, FillAll = fill_all)
   return(processor)
 }
+
+
 
 
 
@@ -158,6 +163,8 @@ perform_ustar_gap_fill <- function(processor, dataframe, variable, nSample = 100
 #' @param sample_size Fraction of the training set to sample
 #' @param mtry Number of variables to sample at each split
 #' @param learn_rate Learning rate
+#' @param seed_count Number of seed values to use
+#' @param seed_for_data Seed value for data preparation
 #' @return Trained XGBoost model
 #' @importFrom parsnip boost_tree
 #' @importFrom tune control_grid finalize_model select_best tune_grid
@@ -168,7 +175,8 @@ perform_ustar_gap_fill <- function(processor, dataframe, variable, nSample = 100
 #' @export
 train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, strata = NULL, n_trees = 2000,
                                 tree_depth = tune(), min_n = tune(), loss_reduction = tune(),
-                                sample_size = sample_prop(), mtry = tune(), learn_rate = tune()) {
+                                sample_size = sample_prop(), mtry = tune(), learn_rate = tune(),
+                                seed_count = 1, seed_for_data = 60723) {
   require(parsnip)
   require(tune)
   require(rsample)
@@ -178,18 +186,18 @@ train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, str
   require(base)
 
   # Prepare data
-  base::set.seed(60723)
+  set.seed(seed_for_data)
   split <- rsample::initial_split(data)
   train_data <- rsample::training(split)
 
   # Set up model specification
   xgb_spec <- parsnip::boost_tree(trees = n_trees,
-                         tree_depth = tree_depth,
-                         min_n = min_n,
-                         loss_reduction = loss_reduction,
-                         sample_size = sample_size,
-                         mtry = mtry,
-                         learn_rate = learn_rate) %>%
+                                  tree_depth = tree_depth,
+                                  min_n = min_n,
+                                  loss_reduction = loss_reduction,
+                                  sample_size = sample_size,
+                                  mtry = mtry,
+                                  learn_rate = learn_rate) %>%
     parsnip::set_engine("xgboost") %>%
     parsnip::set_mode("regression")
 
@@ -199,12 +207,14 @@ train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, str
     workflows::add_model(xgb_spec)
 
   # Create folds
-  base::set.seed(60723)
-  folds <- rsample::vfold_cv(train_data, v = folds, repeats = repeats, strata = strata)
+  seeds <- sample.int(1e6, seed_count)
+  folds <- lapply(seeds, function(seed) {
+    set.seed(seed)
+    rsample::vfold_cv(train_data, v = folds, repeats = repeats, strata = strata)
+  })
 
   # Tune grid
   doParallel::registerDoParallel()
-  base::set.seed(60723)
   res <- tune::tune_grid(xgb_workflow, resamples = folds, grid = grid, control = control_grid(save_pred = TRUE))
 
   # Train model with best parameters
@@ -213,6 +223,7 @@ train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, str
 
   return(trained_model)
 }
+
 
 
 
@@ -435,4 +446,4 @@ perform_flux_partitioning <- function(processor, method, params) {
 
 
 ?XgfRiction::perform_flux_partitioning()
-##okay and now checking fingerprint plot for GPP Reco and NEE
+

@@ -17,7 +17,9 @@ train_xgboost_model(
   loss_reduction = tune(),
   sample_size = sample_prop(),
   mtry = tune(),
-  learn_rate = tune()
+  learn_rate = tune(),
+  seed_count = 1,
+  seed_for_data = 60723
 )
 }
 \arguments{
@@ -46,6 +48,10 @@ train_xgboost_model(
 \item{mtry}{Number of variables to sample at each split}
 
 \item{learn_rate}{Learning rate}
+
+\item{seed_count}{Number of seed values to use}
+
+\item{seed_for_data}{Seed value for data preparation}
 }
 \value{
 Trained XGBoost model

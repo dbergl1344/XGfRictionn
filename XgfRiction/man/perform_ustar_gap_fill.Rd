@@ -10,7 +10,8 @@ perform_ustar_gap_fill(
   variable,
   nSample = 1000L,
   probs = c(0.05, 0.5, 0.95),
-  fill_all = TRUE
+  fill_all = TRUE,
+  seed = NULL
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ perform_ustar_gap_fill(
 \item{probs}{Probabilities for estimation}
 
 \item{fill_all}{Logical indicating whether to fill all gaps}
+
+\item{seed}{Seed value for random number generation}
 }
 \value{
 Updated XGFriction processing object
