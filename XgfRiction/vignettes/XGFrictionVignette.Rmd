@@ -1,5 +1,5 @@
 ---
-title: "XgfRictionVignette"
+title: "XgfRiction Vignette"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{XgfRictionVignette}
@@ -15,19 +15,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(roxygen2)
-library(devtools)
-library(REddyProc)
-library(Metrics)
-library(stats)
-library(tidymodels)
-library(ggplot2)
-library(parsnip)
-library(tune)
-library(base)
-library(rsample)
-library(caret)
-library(xgboost)
+library(XgfRiction)
 ```
 
 ```{r}
