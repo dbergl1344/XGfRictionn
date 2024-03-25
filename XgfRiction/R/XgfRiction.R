@@ -11,7 +11,7 @@ library(base)
 library(rsample)
 library(caret)
 library(xgboost)
-
+library(pkgdown)
 
 #' This class represents a processor for XGFriction data.
 #' XGFrictionProcessor Class
