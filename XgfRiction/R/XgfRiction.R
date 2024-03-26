@@ -431,7 +431,6 @@ perform_flux_partitioning <- function(processor, method, params) {
 
 
 
-
 ###check
 
 # # Example usage with different processor names
@@ -440,6 +439,4 @@ perform_flux_partitioning <- function(processor, method, params) {
 #                          TempVar = "Tair_f", QFTempVar = "Tair_fqc", QFTempValue = 0,
 #                          RadVar = "Rg", TRef = 273.15 + 15, Suffix.s = "suffix")
 # nighttime_results <- perform_flux_partitioning(my_processor, "sMR", nighttime_params)
-
-
 
