@@ -46,9 +46,6 @@ XGFrictionProcessor <- setRefClass("XGFrictionProcessor",
                                    )
 )
 
-
-
-
 #' Initialize XGFriction Processor
 #'
 #' This function initializes the XGFriction processor object.
