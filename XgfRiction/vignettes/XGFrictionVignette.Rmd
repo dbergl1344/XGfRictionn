@@ -29,6 +29,7 @@ ExampleData <- read.csv(file_path)
 
 # Check the structure of the loaded data
 str(ExampleData)
+
 ```
 
 # XGFrictionProcessor Class 

@@ -440,3 +440,6 @@ perform_flux_partitioning <- function(processor, method, params) {
 #                          RadVar = "Rg", TRef = 273.15 + 15, Suffix.s = "suffix")
 # nighttime_results <- perform_flux_partitioning(my_processor, "sMR", nighttime_params)
 
+
+
+
