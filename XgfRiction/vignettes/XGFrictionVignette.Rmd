@@ -14,8 +14,31 @@ knitr::opts_chunk$set(
 )
 ```
 
+#Load the necessary libraries
+
 ```{r setup}
 library(XgfRiction)
+
+
+#dependancies 
+library(XgfRiction)
+
+
+#other libraries 
+library(roxygen2)
+library(devtools)
+library(REddyProc)
+library(Metrics)
+library(stats)
+library(tidymodels)
+library(ggplot2)
+library(parsnip)
+library(tune)
+library(base)
+library(rsample)
+library(caret)
+library(xgboost)
+library(pkgdown)
 ```
 
 Let's first start by loading in the data frame that we will be working with. In this case, we are loading in data from a local file on a computer.
@@ -32,15 +55,42 @@ str(ExampleData)
 
 ```
 
-# XGFrictionProcessor Class 
+# XgfRiction_initialize Function Description
 
-The XGFrictionProcessor class represents a processor specifically designed for handling eddy covariance data. This class is equipped with methods to initialize the processing of eddy covariance data.
+The XgfRiction_initialize function is a utility provided by the XgfRiction package to initialize an XGFrictionProcessor object for processing eddy covariance data. This function simplifies the setup process by automating the initialization of the processor object with essential parameters such as site ID, column names, POSIX time column, and location information.
 
-Fields site: The name of the site associated with the processor. Methods initialize(site):
+Arguments: site_ID: Site ID from the AmeriFlux website. data: Data frame containing the eddy covariance data. column_names: Vector with selected column names from the data frame. posix_time_column: Column name containing POSIX time stamps. LatDeg: Latitude of the measurement site. LongDeg: Longitude of the measurement site. TimeZoneHour: Time zone offset in hours. Returns: An initialized XGFrictionProcessor object ready for further data processing and analysis.
 
-Description: Constructor method for the XGFrictionProcessor class. Parameters: site: Character string representing the name of the site. Usage: processor \<- XGFrictionProcessor\$new(site) initialize_xgfriction_processing(dataframe, LatDeg, LongDeg, TimeZoneHour):
+```{r}
+# Set your site ID
+site_ID <- "US-Bar"
 
-Description: Method to initialize the processing of eddy covariance data. Parameters: dataframe: The data frame containing XGFriction data. LatDeg: Latitude of the site in degrees. LongDeg: Longitude of the site in degrees. TimeZoneHour: Time zone offset in hours. Usage:
+# Set your column names
+column_names <- c("NEE", "Rg", "Tair", "VPD", "Ustar")
+
+# Set your POSIX time column
+posix_time_column <- "TIMESTAMP"
+
+# Set your site location information
+LatDeg <- 44.0646
+LongDeg <- -71.2881
+TimeZoneHour <- -5
+
+# Initialize sEddyProc object
+processor <- XgfRiction_initialize(site_ID = site_ID,
+                                   data = ExampleData,
+                                   column_names = column_names,
+                                   posix_time_column = 'TIMESTAMP',
+                                   LatDeg = LatDeg,
+                                   LongDeg = LongDeg,
+                                   TimeZoneHour = TimeZoneHour)
+
+
+```
+
+# \#### Initialize XGFriction Processor
+
+The `initialize_xgfriction_processor` function is responsible for initializing the XGFriction processor object within the XGFriction package. This processor object serves as an interface for various operations related to XGFriction data, providing a structured environment for data handling and analysis. By creating an instance of this processor object, users can access and utilize the functionalities offered by the XgfRiction package in a convenient and organized manner.
 
 ```{r}
 processor <- XGFrictionProcessor$new(site = "Bart")

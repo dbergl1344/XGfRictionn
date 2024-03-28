@@ -1,89 +1,63 @@
-library(roxygen2)
-library(devtools)
-library(REddyProc)
-library(Metrics)
-library(stats)
-library(tidymodels)
-library(ggplot2)
-library(parsnip)
-library(tune)
-library(base)
-library(rsample)
-library(caret)
-library(xgboost)
-library(pkgdown)
-
-#' This class represents a processor for XGFriction data.
-#' XGFrictionProcessor Class
+#' Initialize sEddyProc object, adjust timestamps, and set location information
 #'
-#' This class represents a processor for XGFriction data.
+#' This function initializes the sEddyProc class, adjusts timestamps if necessary, and sets location information.
 #'
-#' @field site The name of the site associated with the processor.
-#' @import REddyProc
+#' @param site_ID Site ID from the AmeriFlux website.
+#' @param data Data frame containing the eddy data.
+#' @param column_names Vector with selected column names.
+#' @param posix_time_column Column name with POSIX time stamp.
+#' @param LatDeg Latitude of the site.
+#' @param LongDeg Longitude of the site.
+#' @param TimeZoneHour Time zone offset in hours.
+#' @return Initialized sEddyProc object.
+#' @importFrom REddyProc sEddyProc
 #' @export
-XGFrictionProcessor <- setRefClass("XGFrictionProcessor",
-                                   fields = list(site = "character"),
-                                   methods = list(
-                                     initialize = function(site) {
-                                       site <<- site
-                                     },
-                                     initialize_xgfriction_processing = function(dataframe, LatDeg, LongDeg, TimeZoneHour) {
-                                       require(REddyProc)
-                                       # Check if the data is in 30-minute timestamp format
-                                       if (any(diff(dataframe$DateTime) != 30*60)) {
-                                         mins <- 15*60
-                                         print("Adding 15 minutes to DateTime")
-                                         print(dataframe$DateTime + mins)
-                                         dataframe$DateTime <- (dataframe$DateTime + mins)
-                                       }
+XgfRiction_initialize <- function(site_ID, data, column_names, posix_time_column,
+                                  LatDeg, LongDeg, TimeZoneHour) {
 
-                                       # Initialize the processing
-                                       xgfriction_proc <- REddyProc::sEddyProc$new(site, dataframe$DateTime,
-                                                                                   c('NEE', 'Rg', 'Tair', 'VPD', 'Ustar'))
-                                       xgfriction_proc$sSetLocationInfo(LatDeg = LatDeg, LongDeg = LongDeg, TimeZoneHour = TimeZoneHour)
-                                       return(xgfriction_proc)
-                                     }
-                                   )
-)
+  require(REddyProc)
 
-#' Initialize XGFriction Processor
-#'
-#' This function initializes the XGFriction processor object.
-#'
-#' @param site Site name.
-#' @return XGFrictionProcessor object.
-#' @export
-initialize_xgfriction_processor <- function(site) {
-  return(XGFrictionProcessor$new(site))
+  # Adjust timestamps if necessary (from 15-minute to 30-minute intervals)
+  mins <- 15 * 60
+  if (any(diff(data[[posix_time_column]]) != 1800)) {
+    print("Adjusting timestamps to 30-minute intervals")
+    data[[posix_time_column]] <- as.POSIXct(round(as.numeric(data[[posix_time_column]]) / (30 * 60)) * (30 * 60),
+                                            origin = "1970-01-01", tz = "UTC")
+  }
+
+  # Initialize sEddyProc class
+  eddy_proc <- sEddyProc$new(site_ID, data, column_names)
+
+  # Set location information
+  eddy_proc$sSetLocationInfo(LatDeg = LatDeg, LongDeg = LongDeg, TimeZoneHour = TimeZoneHour)
+
+  return(eddy_proc)
 }
 
 
-#' Gap Fill MDS Variables
+
+
+#' Perform gap-filling of meteorological data for XGFrictionProcessor object
 #'
-#' This function performs gap filling for specified MDS variables using REddyProc.
-#' @param processor XGFriction processing object
-#' @param variables Vector of variables to gap fill
-#' @param fill_all Logical indicating whether to fill all gaps
-#' @return Updated XGFriction processing object
-#' @importFrom REddyProc sEddyProc
+#' This function performs gap-filling of meteorological data using the sMDSGapFill method for an XGFrictionProcessor object.
+#'
+#' @param processor_name Name of the XGFrictionProcessor object.
+#' @param variables Vector of variable names to gap-fill.
+#' @param FillAll Logical, indicating whether to fill all gaps in the variables or only the missing values between two valid observations.
+#' @return XGFrictionProcessor object with gap-filled meteorological data.
+#' @importFrom REddyProc sMDSGapFill
 #' @export
-gap_fill_mds_variables <- function(processor, variables, fill_all = FALSE) {
+gap_fill_met <- function(processor_name, variables, FillAll = FALSE) {
   require(REddyProc)
-  # Initialize REddyProc object for gap filling
-  reddy_proc <- REddyProc::sEddyProc$new()
 
-  # Loop through variables
+  processor <- get(processor_name)
+
   for (variable in variables) {
-    # Perform gap filling using REddyProc's sMDSGapFill method
-    gap_filled_data <- reddy_proc$sMDSGapFill(processor$data[[variable]], FillAll = fill_all)
-
-    # Update processor with gap-filled data
-    processor$data[[variable]] <- gap_filled_data
+    processor$sMDSGapFill(variable, FillAll = FillAll)
   }
 
   return(processor)
 }
-
 
 
 
@@ -427,19 +401,5 @@ perform_flux_partitioning <- function(processor, method, params) {
   }
   return(results)
 }
-
-
-
-
-###check
-
-# # Example usage with different processor names
-# # Assuming 'my_processor' is the user's REddyProc object
-# nighttime_params <- list(FluxVar = "NEE_f", QFFluxVar = "NEE_fqc", QFFluxValue = 0,
-#                          TempVar = "Tair_f", QFTempVar = "Tair_fqc", QFTempValue = 0,
-#                          RadVar = "Rg", TRef = 273.15 + 15, Suffix.s = "suffix")
-# nighttime_results <- perform_flux_partitioning(my_processor, "sMR", nighttime_params)
-
-
 
 
