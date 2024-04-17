@@ -18,5 +18,8 @@ Imports:
     parsnip,
     rsample,
     tune,
-    workflows
+    workflows, 
+    data.table, 
+    doParallel,
+    dplyr
    
