@@ -1,6 +1,53 @@
-#' Initialize sEddyProc object, adjust timestamps, and set location information
+#' Convert to POSIX time format
 #'
-#' This function initializes the sEddyProc class, adjusts timestamps if necessary, and sets location information.
+#' Converts the specified data columns to POSIXct format using the REddyProc package function `fConvertTimeToPosix`.
+#'
+#' @param data Data frame containing the data.
+#' @param date_format Character string specifying the date format (e.g., "YMDHM").
+#' @param year_col Name of the year column.
+#' @param month_col Name of the month column.
+#' @param day_col Name of the day column.
+#' @param hour_col Name of the hour column.
+#' @param min_col Name of the minute column.
+#' @param posix_time_col Name of the POSIXct column to be created.
+#' @return Data frame with the POSIXct column.
+#' @importFrom REddyProc fConvertTimeToPosix
+#' @export
+convert_to_POSIX <- function(data, date_format, year_col, month_col, day_col, hour_col, min_col, posix_time_col) {
+  # Convert date and time columns to POSIXct format using fConvertTimeToPosix
+  data <- REddyProc::fConvertTimeToPosix(data, date_format, Year = year_col, Month = month_col, Day = day_col, Hour = hour_col, Min = min_col)
+
+  # Convert the specified column to POSIXct format
+  data[[posix_time_col]] <- as.POSIXct(data[[posix_time_col]], format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  return(data)
+}
+
+
+
+
+#' Subtract 15 minutes from DateTime column
+#'
+#' Subtracts 15 minutes (900 seconds) from the DateTime column of a data frame.
+#'
+#' @param data Data frame containing the data.
+#' @param posix_time_col Name of the POSIXct column (DateTime) to adjust.
+#' @return Data frame with adjusted DateTime column.
+#' @export
+subtract_15_minutes_from_datetime <- function(data, posix_time_col) {
+  # Calculate the interval in seconds (15 minutes)
+  interval <- 15 * 60  # 15 minutes in seconds
+
+  # Subtract 15 minutes (900 seconds) from the DateTime column
+  data[[posix_time_col]] <- data[[posix_time_col]] - interval
+
+  # Return the data frame with the adjusted DateTime column
+  return(data)
+}
+
+
+#' Initialize user_class processor
+#'
+#' Initializes the user_class processor object and sets location information.
 #'
 #' @param site_ID Site ID from the AmeriFlux website.
 #' @param data Data frame containing the eddy data.
@@ -9,58 +56,39 @@
 #' @param LatDeg Latitude of the site.
 #' @param LongDeg Longitude of the site.
 #' @param TimeZoneHour Time zone offset in hours.
-#' @return Initialized sEddyProc object.
+#' @return Initialized user_class object with location information set.
 #' @importFrom REddyProc sEddyProc
 #' @export
-XgfRiction_initialize <- function(site_ID, data, column_names, posix_time_column,
-                                  LatDeg, LongDeg, TimeZoneHour) {
+initialize_user_class_processor <- function(site_ID, data, column_names, posix_time_column, LatDeg, LongDeg, TimeZoneHour) {
+  # Initialize the user_class processor object
+  user_class <- REddyProc::sEddyProc$new(site_ID, data, column_names)
 
-  require(REddyProc)
+  # Set location information for the user_class processor
+  user_class$sSetLocationInfo(LatDeg = LatDeg, LongDeg = LongDeg, TimeZoneHour = TimeZoneHour)
 
-  # Adjust timestamps if necessary (from 15-minute to 30-minute intervals)
-  mins <- 15 * 60
-  if (any(diff(data[[posix_time_column]]) != 1800)) {
-    print("Adjusting timestamps to 30-minute intervals")
-    data[[posix_time_column]] <- as.POSIXct(round(as.numeric(data[[posix_time_column]]) / (30 * 60)) * (30 * 60),
-                                            origin = "1970-01-01", tz = "UTC")
-  }
-
-  # Initialize sEddyProc class
-  eddy_proc <- sEddyProc$new(site_ID, data, column_names)
-
-  # Set location information
-  eddy_proc$sSetLocationInfo(LatDeg = LatDeg, LongDeg = LongDeg, TimeZoneHour = TimeZoneHour)
-
-  return(eddy_proc)
+  return(user_class)
 }
 
 
-
-
-#' Perform gap-filling of meteorological data for XGFrictionProcessor object
+#' Calculate VPD and Tair
 #'
-#' This function performs gap-filling of meteorological data using the sMDSGapFill method for an XGFrictionProcessor object.
+#' Calculates VPD and Tair for the specified data frame.
 #'
-#' @param processor_name Name of the XGFrictionProcessor object.
-#' @param variables Vector of variable names to gap-fill.
-#' @param FillAll Logical, indicating whether to fill all gaps in the variables or only the missing values between two valid observations.
-#' @return XGFrictionProcessor object with gap-filled meteorological data.
-#' @importFrom REddyProc sMDSGapFill
+#' @param data Data frame containing the data.
+#' @param rh_col Name of the relative humidity column.
+#' @param tair_col Name of the air temperature column.
+#' @return Data frame with calculated VPD and Tair columns added.
+#' @importFrom REddyProc fCalcVPDfromRHandTair
 #' @export
-gap_fill_met <- function(processor_name, variables, FillAll = FALSE) {
-  require(REddyProc)
+calculate_vpd_and_tair <- function(data, rh_col, tair_col) {
+  # Calculate VPD from relative humidity and air temperature using fCalcVPDfromRHandTair function
+  vpd <- REddyProc::fCalcVPDfromRHandTair(data[[rh_col]], data[[tair_col]])
 
-  processor <- get(processor_name)
+  # Add the calculated VPD column to the data frame
+  data$VPD <- vpd
 
-  for (variable in variables) {
-    processor$sMDSGapFill(variable, FillAll = FillAll)
-  }
-
-  return(processor)
+  return(data)
 }
-
-
-
 
 #' Perform IQR Filtering
 #'
@@ -84,34 +112,149 @@ perform_iqr_filtering <- function(xgfriction_proc, dataframe, variables, thresho
 }
 
 
-#' Perform Ustar Threshold Distribution Estimation and Gap Filling
+
+#' Perform gap-filling of meteorological data for XGFrictionProcessor object
 #'
-#' This function estimates the u* threshold distribution and performs gap filling.
-#' @param processor XGFriction processing object
-#' @param dataframe Data frame containing the variable to perform gap filling on
-#' @param variable Variable to perform gap filling on
-#' @param nSample Number of samples for estimation
-#' @param probs Probabilities for estimation
-#' @param fill_all Logical indicating whether to fill all gaps
-#' @param seed Seed value for random number generation
-#' @return Updated XGFriction processing object
-#' @importFrom REddyProc usGetAnnualSeasonUStarMap
+#' This function performs gap-filling of meteorological data using the `sMDSGapFill` method for an XGFrictionProcessor object.
+#'
+#' @param processor XGFrictionProcessor object to perform gap-filling on.
+#' @param variables Vector of variable names to gap-fill.
+#' @param fill_all Logical, indicating whether to fill all gaps in the variables or only the missing values between two valid observations.
+#' @return Updated XGFrictionProcessor object with gap-filled meteorological data.
+#' @importFrom REddyProc sEddyProc_sMDSGapFill
 #' @export
-perform_ustar_gap_fill <- function(processor, dataframe, variable, nSample = 1000L, probs = c(0.05, 0.5, 0.95), fill_all = TRUE, seed = NULL) {
-  require(stats)
-  require(REddyProc)
-
-  if (!is.null(seed)) {
-    set.seed(seed)
+gap_fill_met_data <- function(processor, variables, fill_all = FALSE) {
+  # Perform gap-filling on specified variables using sMDSGapFill method
+  for (variable in variables) {
+    processor$sEddyProc_sMDSGapFill(variable, FillAll = fill_all)
   }
-
-  processor$sEstUstarThresholdDistribution(nSample = nSample, probs = probs)
-  uStarTh <- processor$sGetEstimatedUstarThresholdDistribution()
-  uStarThAnnual <- usGetAnnualSeasonUStarMap(uStarTh)[-2]
-  uStarSuffixes <- colnames(uStarThAnnual)[-1]
-  processor$sMDSGapFillAfterUStarDistr(variable, uStarTh = uStarThAnnual, uStarSuffixes = uStarSuffixes, FillAll = fill_all)
+  # Return the updated processor object
   return(processor)
 }
+
+
+
+
+
+#' Estimate u* threshold distribution for an XGFrictionProcessor object
+#'
+#' This function estimates the u* threshold distribution using the specified processor.
+#'
+#' @param processor XGFrictionProcessor object.
+#' @param n_sample Number of samples for estimation (default: 700L).
+#' @param probs Probabilities for estimation (default: c(0.05, 0.5, 0.95)).
+#' @return Data frame containing the estimated u* threshold distribution.
+#' @importFrom REddyProc sEddyProc_sEstUstarThresholdDistribution sEddyProc_sGetEstimatedUstarThresholdDistribution
+#' @export
+estimate_ustar_threshold_distribution <- function(processor, n_sample = 700L, probs = c(0.05, 0.5, 0.95)) {
+  processor$sEstUstarThresholdDistribution(nSample = n_sample, probs = probs)
+  uStarTh <- processor$sGetEstimatedUstarThresholdDistribution()
+  return(uStarTh)
+}
+
+
+#' Filter u* Threshold Distribution by Aggregation Mode
+#'
+#' This function filters a data frame containing the estimated u* threshold distribution based on the specified aggregation mode.
+#'
+#' @param ustar_distribution Data frame containing the estimated u* threshold distribution.
+#' @param mode Character string specifying the aggregation mode ("year", "season", or "single"). Default is "year".
+#' @return Data frame filtered based on the specified aggregation mode with selected quantiles (5%, 50%, 95%).
+#' @importFrom dplyr filter select
+#' @export
+filter_ustar_by_mode <- function(ustar_distribution, mode = "year") {
+  filtered_ustar <- ustar_distribution %>%
+    dplyr::filter(aggregationMode == mode) %>%
+    dplyr::select(`5%`, `50%`, `95%`)
+  return(filtered_ustar)
+}
+
+
+
+#' Get Annual u* Threshold Map
+#'
+#' This function obtains the annual or seasonal u* threshold map from a filtered data frame.
+#'
+#' @param filtered_ustar Data frame filtered based on the specified aggregation mode with selected quantiles (5%, 50%, 95%).
+#' @return Data frame containing the annual or seasonal u* threshold map.
+#' @export
+get_ustar_annual <- function(filtered_ustar) {
+  # Return the data frame as is since it contains the quantile columns (5%, 50%, 95%)
+  uStarThAnnual <- filtered_ustar
+  # Print the data frame to verify its structure
+  print(uStarThAnnual)
+  # Return the data frame
+  return(uStarThAnnual)
+}
+
+
+
+#' Get u* Suffixes from u* Threshold Map
+#'
+#' This function retrieves the u* suffixes from the u* threshold map.
+#'
+#' @param uStarTh Data frame containing the u* threshold map.
+#' @return Character vector containing the column names of the u* threshold map.
+#' @export
+get_ustar_suffixes <- function(uStarTh) {
+  # Retrieve column names (u* suffixes) of the u* threshold map
+  uStarSuffixes <- colnames(uStarTh)
+  return(uStarSuffixes)
+}
+
+
+
+
+#' Perform Gap Filling using u* Threshold Distribution
+#'
+#' This function performs gap filling for a specified variable using the u* threshold distribution.
+#'
+#' @param processor An instance of the sEddyProc class or similar processor object containing the user's data.
+#' @param variable Character string specifying the variable to gap fill (e.g., "NEE").
+#' @param ustar_distribution Data frame containing the estimated u* threshold distribution. It should include the quantiles (5%, 50%, 95%) for the specified aggregation mode (e.g., "year").
+#' @param fill_all Logical indicating whether to fill all gaps (default: TRUE). If `TRUE`, all gaps in the specified variable will be filled using the u* threshold distribution. If `FALSE`, only gaps matching specific conditions will be filled.
+#' @return Updated processor object after gap filling. The processor object will have the specified variable gap-filled using the u* threshold distribution.
+#' @importFrom REddyProc sEddyProc_sMDSGapFillAfterUStarDistr
+#' @export
+perform_gap_filling_with_ustar <- function(processor, variable, ustar_distribution, fill_all = TRUE) {
+  # Step 1: Filter the u* threshold distribution for yearly aggregation
+  filtered_ustar <- filter_ustar_by_mode(ustar_distribution, mode = "year")
+
+  # Step 2: Get the annual u* threshold map
+  uStarThAnnual <- get_ustar_annual(filtered_ustar)
+
+  # Step 3: Get the u* suffixes
+  uStarSuffixes <- get_ustar_suffixes(uStarThAnnual)
+
+  # Step 4: Perform gap filling using the u* threshold distribution
+  processor$sEddyProc_sMDSGapFillAfterUStarDistr(
+    variable,
+    uStarTh = uStarThAnnual,
+    uStarSuffixes = uStarSuffixes,
+    FillAll = fill_all
+  )
+
+  # Return the updated processor object
+  return(processor)
+}
+
+
+
+
+#' Export results from XGFrictionProcessor object
+#'
+#' This function exports the results from the specified processor after gap filling.
+#'
+#' @param processor XGFrictionProcessor object.
+#' @return Data frame containing the exported results.
+#' @importFrom REddyProc sEddyProc_sExportResults
+#' @export
+export_results_from_processor <- function(processor) {
+  results <- processor$sEddyProc_sExportResults()
+  return(results)
+}
+
+
 
 
 

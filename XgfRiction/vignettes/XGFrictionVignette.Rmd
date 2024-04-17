@@ -18,12 +18,6 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(XgfRiction)
-
-
-#dependancies 
-library(XgfRiction)
-
-
 #other libraries 
 library(roxygen2)
 library(devtools)
@@ -39,6 +33,7 @@ library(rsample)
 library(caret)
 library(xgboost)
 library(pkgdown)
+library(dplyr)
 ```
 
 Let's first start by loading in the data frame that we will be working with. In this case, we are loading in data from a local file on a computer.
@@ -50,9 +45,6 @@ file_path <- "~/Documents/GitHub/XgfRictionn/XgfRiction/ExampleData.csv"
 # Load the data from the CSV file
 ExampleData <- read.csv(file_path)
 
-# Check the structure of the loaded data
-str(ExampleData)
-
 ```
 
 # XgfRiction_initialize Function Description
@@ -62,44 +54,163 @@ The XgfRiction_initialize function is a utility provided by the XgfRiction packa
 Arguments: site_ID: Site ID from the AmeriFlux website. data: Data frame containing the eddy covariance data. column_names: Vector with selected column names from the data frame. posix_time_column: Column name containing POSIX time stamps. LatDeg: Latitude of the measurement site. LongDeg: Longitude of the measurement site. TimeZoneHour: Time zone offset in hours. Returns: An initialized XGFrictionProcessor object ready for further data processing and analysis.
 
 ```{r}
-# Set your site ID
-site_ID <- "US-Bar"
 
-# Set your column names
-column_names <- c("NEE", "Rg", "Tair", "VPD", "Ustar")
+# Define column names for date and time
+year_col <- "YEAR"
+month_col <- "MONTH"
+day_col <- "DAY"
+hour_col <- "HOUR"
+min_col <- "MINUTE"
+date_format <- "YMDHM"  # Specify the date format
+posix_time_col <- "DateTime"  # Specify the name of the POSIX time column
 
-# Set your POSIX time column
-posix_time_column <- "TIMESTAMP"
+# Convert the date and time columns to POSIXct format
+converted_data <- convert_to_POSIX(ExampleData, date_format, year_col, month_col, day_col, hour_col, min_col, posix_time_col)
 
-# Set your site location information
-LatDeg <- 44.0646
-LongDeg <- -71.2881
-TimeZoneHour <- -5
-
-# Initialize sEddyProc object
-processor <- XgfRiction_initialize(site_ID = site_ID,
-                                   data = ExampleData,
-                                   column_names = column_names,
-                                   posix_time_column = 'TIMESTAMP',
-                                   LatDeg = LatDeg,
-                                   LongDeg = LongDeg,
-                                   TimeZoneHour = TimeZoneHour)
-
+# Print the first few rows of the converted data to verify the conversion
+head(converted_data)
 
 ```
 
-# \#### Initialize XGFriction Processor
+# Check and update DateTime format function if needed
 
-The `initialize_xgfriction_processor` function is responsible for initializing the XGFriction processor object within the XGFriction package. This processor object serves as an interface for various operations related to XGFriction data, providing a structured environment for data handling and analysis. By creating an instance of this processor object, users can access and utilize the functionalities offered by the XgfRiction package in a convenient and organized manner.
+This example demonstrates how to use the check_and_update_datetime_format function to ensure the DateTime column is in the correct format (00:00 or 00:30) and adjust it if necessary. In this case, it is necessary.
 
 ```{r}
-processor <- XGFrictionProcessor$new(site = "Bart")
-# Initialize XGFriction processing with ExampleData
+# Define the column containing the POSIXct (DateTime) data
+posix_time_col <- "DateTime"
 
-# Initialize XGFriction processing with ExampleData
-processor <- processor$initialize_xgfriction_processing(dataframe = ExampleData, LatDeg = 45.0, LongDeg = -75.0, TimeZoneHour = -5)
+# Use the function to adjust the DateTime column by subtracting 15 minutes
+adjusted_data <- subtract_15_minutes_from_datetime(converted_data, posix_time_col)
 
-# Check the structure of the processor object
-print(processor)
+# The adjusted_data 
+```
 
+# 4. Calculate VPD and Tair function
+
+In this example, the function calculate_vpd_and_tair calculates the VPD and Tair for a given data frame. This has already been done for this example data, so this is commented out.
+
+```{r}
+# Define relative humidity and air temperature columns
+#rh_col <- "Rh"  # Name of the relative humidity column
+#tair_col <- "Tair"  # Name of the air temperature column
+
+# Calculate VPD and Tair
+#adjusted_data <- calculate_vpd_and_tair(adjusted_data, rh_col, tair_col)
+```
+
+# Initialzing the user_class processor function
+
+In this example, we'll use the initialize_user_class_processor function to initialize a sEddyProc object and set location information for the eddy covariance data.
+
+```{r}
+
+# Define site ID and data frame
+site_ID <- "US-Bar"  # Site ID from the AmeriFlux website
+data <- adjusted_data # Data frame containing eddy covariance data
+
+# Define column names and POSIX time column
+column_names <- c("NEE", "Rg", "Tair", "VPD", "Ustar")  # Vector of column names for eddy covariance data
+posix_time_col <- "DateTime"  # Name of the POSIXct column in your data frame
+
+# Define location information
+LatDeg <- 44.0646  # Latitude of the site
+LongDeg <- -71.2881  # Longitude of the site
+TimeZoneHour <- -5  # Time zone offset in hours
+
+# Initialize the user_class processor
+user_class <- initialize_user_class_processor(
+    site_ID = site_ID,
+    data = data,
+    column_names = column_names,
+    posix_time_column = posix_time_col,
+    LatDeg = LatDeg,
+    LongDeg = LongDeg,
+    TimeZoneHour = TimeZoneHour
+)
+
+```
+
+# IQR Filtering Data
+
+This example demonstrates how to use the function to perform IQR filtering on specified variables in a data frame and update an
+
+```{r}
+# Perform IQR filtering on specified variables
+#variables_to_filter <- c("NEE")
+#threshold_multiplier <- 6  # The multiplier for the IQR threshold
+
+# Apply the perform_iqr_filtering function
+#xgfriction_proc <- perform_iqr_filtering(
+   # xgfriction_proc = user_class,
+    # dataframe = adjusted_data,
+    # variables = variables_to_filter,
+   # threshold_multiplier = threshold_multiplier
+# )
+```
+
+# Practical Use of gap_fill_met_data Function:
+
+To perform gap-filling of meteorological data for an XGFrictionProcessor object, you can use the gap_fill_met_data function. This function accepts an XGFrictionProcessor object, a vector of variable names you want to gap-fill, and a logical flag fill_all to specify whether to fill all gaps in the variables or only the missing values between two valid observations. This has already been done for this dataframe.
+
+```{r}
+# Define the variables to gap-fill
+# variables_to_fill <- c("Tair", "VPD", "Rg")
+
+# Perform gap-filling of specified variables
+# gap_filled_processor <- gap_fill_met_data(user_class, variables_to_fill, fill_all = FALSE)
+
+# The gap-filled processor object can now be used for further processing
+
+```
+
+# Estimate u\* Threshold Distribution
+
+The function uses the sEstUstarThresholdDistribution method from the REddyProc package to estimate the u\* threshold distribution for the specified processor object.
+
+```{r}
+# Estimate the u* threshold distribution
+ustar_distribution <- estimate_ustar_threshold_distribution(processor = user_class)
+```
+
+# Filter_ustar_by_mode
+
+```{r}
+# Filter the u* threshold distribution for the "year" aggregation mode
+filtered_ustar <- filter_ustar_by_mode(ustar_distribution, mode = "year")
+
+# Output the filtered data
+head(filtered_ustar)
+
+```
+
+# get_ustar_annual
+
+```{r}
+
+# Obtain the annual or seasonal u* threshold map
+uStarThAnnual <- get_ustar_annual(filtered_ustar)
+
+```
+
+# Obtain the uStar suffixes
+
+```{r}
+# Retrieve the column names of the u* threshold map
+uStarSuffixes <- get_ustar_suffixes(uStarThAnnual)
+
+# Print the u* suffixes
+print(uStarSuffixes)
+
+```
+
+# Gap-Filling after uStar distribution selection and ustar filtering
+
+```{r}
+user_class$se('NEE', uStarTh = uStarThAnnual, uStarSuffixes =  uStarSuffixes, FillAll = TRUE)
+
+grep("NEE_.*_f$",names(Bartlett.2004.2022.IQR$sExportResults())
+     , value = TRUE)
+grep("NEE_.*_fsd$",names(Bartlett.2004.2022.IQR$sExportResults())
+     , value = TRUE)
 ```
