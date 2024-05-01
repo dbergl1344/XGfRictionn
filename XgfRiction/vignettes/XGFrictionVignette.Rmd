@@ -265,15 +265,15 @@ cv_folds <- create_cv_folds(data = data_list$train_data, folds = 5, repeats = 2)
 
 ```{r}
 # Define the number of folds and repeats for cross-validation
-cv_folds <- 5
-cv_repeats <- 2
-
-# Create cross-validation folds
-cv <- vfold_cv(data_list$train_data, v = cv_folds, repeats = cv_repeats)
-trained_model <- train_xgboost_model(
-data = data_list$train_data,
-formula = formula,
-grid = grid,
-folds = cv_folds)
+# cv_folds <- 5
+# cv_repeats <- 2
+# 
+# # Create cross-validation folds
+# cv <- vfold_cv(data_list$train_data, v = cv_folds, repeats = cv_repeats)
+# trained_model <- train_xgboost_model(
+# data = data_list$train_data,
+# formula = formula,
+# grid = grid,
+# folds = cv_folds)
 
 ```
