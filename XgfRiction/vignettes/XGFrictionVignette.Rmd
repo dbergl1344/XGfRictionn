@@ -14,26 +14,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-#Load the necessary libraries
+# Load the necessary libraries
 
 ```{r setup}
 library(XgfRiction)
-#other libraries 
-library(roxygen2)
-library(devtools)
-library(REddyProc)
-library(Metrics)
-library(stats)
-library(tidymodels)
-library(ggplot2)
-library(parsnip)
-library(tune)
-library(base)
-library(rsample)
-library(caret)
-library(xgboost)
-library(pkgdown)
-library(dplyr)
 ```
 
 Let's first start by loading in the data frame that we will be working with. In this case, we are loading in data from a local file on a computer.
@@ -47,11 +31,9 @@ ExampleData <- read.csv(file_path)
 
 ```
 
-# XgfRiction_initialize Function Description
+# Posix Data Format
 
-The XgfRiction_initialize function is a utility provided by the XgfRiction package to initialize an XGFrictionProcessor object for processing eddy covariance data. This function simplifies the setup process by automating the initialization of the processor object with essential parameters such as site ID, column names, POSIX time column, and location information.
-
-Arguments: site_ID: Site ID from the AmeriFlux website. data: Data frame containing the eddy covariance data. column_names: Vector with selected column names from the data frame. posix_time_column: Column name containing POSIX time stamps. LatDeg: Latitude of the measurement site. LongDeg: Longitude of the measurement site. TimeZoneHour: Time zone offset in hours. Returns: An initialized XGFrictionProcessor object ready for further data processing and analysis.
+The first thing that we need to do is make sure that our date and time column is in the POSIX format before we can make our class. We can then see what the update data frame looks like to make sure that it worked.
 
 ```{r}
 
@@ -74,7 +56,7 @@ head(converted_data)
 
 # Check and update DateTime format function if needed
 
-This example demonstrates how to use the check_and_update_datetime_format function to ensure the DateTime column is in the correct format (00:00 or 00:30) and adjust it if necessary. In this case, it is necessary.
+This example demonstrates how to use the check_and_update_datetime_format function to ensure the DateTime column is in the correct format (00:00 or 00:30) and adjust it if necessary. In this case, it is necessary. This package relies on the data being in a 30-minute data format. Some site data does not come in this format, so this function can standardized that if it is not in the correct format. Other formats typically include the 00:15 and 00:45 format.
 
 ```{r}
 # Define the column containing the POSIXct (DateTime) data
@@ -88,7 +70,7 @@ adjusted_data <- subtract_15_minutes_from_datetime(converted_data, posix_time_co
 
 # 4. Calculate VPD and Tair function
 
-In this example, the function calculate_vpd_and_tair calculates the VPD and Tair for a given data frame. This has already been done for this example data, so this is commented out.
+In this example, the function calculate_vpd_and_tair calculates the VPD and Tair for a given data frame. This has already been done for this example data, so this is commented out. However, this use a look up table and MDS methods.
 
 ```{r}
 # Define relative humidity and air temperature columns
@@ -99,7 +81,7 @@ In this example, the function calculate_vpd_and_tair calculates the VPD and Tair
 #adjusted_data <- calculate_vpd_and_tair(adjusted_data, rh_col, tair_col)
 ```
 
-# Initialzing the user_class processor function
+# Initializing the user_class processor function
 
 In this example, we'll use the initialize_user_class_processor function to initialize a sEddyProc object and set location information for the eddy covariance data.
 
@@ -204,6 +186,12 @@ print(uStarSuffixes)
 
 ```
 
+#Lets see what the fingerprint plot looks like
+
+```{r}
+user_class$sPlotFingerprintY('NEE', Year = 2010)
+```
+
 # Gap-Filling after uStar distribution selection and ustar filtering
 
 ```{r}
@@ -216,22 +204,22 @@ grep("NEE_.*_f$",names(user_class$sExportResults())
      , value = TRUE)
 grep("NEE_.*_fsd$",names(user_class$sExportResults())
      , value = TRUE)
-
+user_class.res <- user_class$sExportResults()
+sum(is.na(user_class.res$NEE_uStar_f))
 ```
 
+## Gap-Filling using XGBoost after uStar filtering using XGBoost instead of MDS methods
 
-
-# Gap-Filling using XgBoost after uStar filtering using XgBoost instead of MDS methods
+Step 1: Prepare Data First, let's prepare our data by splitting it into training and testing sets.
 
 ```{r}
-# Define your single uStar threshold value from the above code
-ustar_threshold <- 0.2
 
 # Select predictors and response variable
 predictors <- c("TIMESTAMP_START", "TIMESTAMP_END", "Tair", "TS_F_1_2_1", "Rg", 
                 "Rh", "PPFD_DIF_1_1_1", "PPFD_DIR_1_1_1", "NETRAD_1_1_1", 
                 "SWC_1_1_1", "SWC_4_1_1", "VPD")
 response <- "NEE"
+ustar_threshold <- 0.2
 
 # Filtered data containing only the necessary columns
 filtered_data <- ExampleData[ExampleData$Ustar >= ustar_threshold, c(predictors, response)]
@@ -239,21 +227,53 @@ filtered_data <- ExampleData[ExampleData$Ustar >= ustar_threshold, c(predictors,
 # Define formula for the model
 formula <- reformulate(predictors, response)
 
-# Define custom grid for hyperparameter tuning
-grid <- expand.grid(
-  tree_depth = c(3, 6, 9),
-  min_n = c(5, 10, 15),
-  loss_reduction = c(0.01, 0.1, 0.2),
-  sample_size = c(0.5, 0.7, 0.9),
-  mtry = c(3, 5, 7),
-  learn_rate = c(0.01, 0.1, 0.2)
-)
-
-# Train XGBoost model
-trained_model <- train_xgboost_model(data = filtered_data, formula = formula, grid = grid)
-
-
-
+# Prepare data
+data_list <- prepare_data(filtered_data)
 
 ```
 
+# Defining the model specifications
+
+Next, let's define the model specification for the XGBoost model.
+
+```{r}
+# Create model specification
+xgb_spec <- create_model_spec()
+
+```
+
+# Model Workflow
+
+Now, let's create a workflow for training our XGBoost model.
+
+```{r}
+# Create workflow
+workflow <- create_workflow(formula, xgb_spec)
+
+```
+
+# Cross Validation
+
+Defining our Cross-Validation Folds
+
+```{r}
+# Define cross-validation folds
+cv_folds <- create_cv_folds(data = data_list$train_data, folds = 5, repeats = 2)
+```
+
+# Training our XGBoost Model
+
+```{r}
+# Define the number of folds and repeats for cross-validation
+cv_folds <- 5
+cv_repeats <- 2
+
+# Create cross-validation folds
+cv <- vfold_cv(data_list$train_data, v = cv_folds, repeats = cv_repeats)
+trained_model <- train_xgboost_model(
+data = data_list$train_data,
+formula = formula,
+grid = grid,
+folds = cv_folds)
+
+```
