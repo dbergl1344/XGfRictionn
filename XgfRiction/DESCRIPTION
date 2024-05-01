@@ -13,10 +13,14 @@ RoxygenNote: 7.2.3
 Imports:
     REddyProc,
     stats,
-    xgboost
+    xgboost,
     ggplot2,
     parsnip,
     rsample,
     tune,
-    workflows
+    workflows,
+    data.table,
+    doParallel,
+    dplyr
+    
    
