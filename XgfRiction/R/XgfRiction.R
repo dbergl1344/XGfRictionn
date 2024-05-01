@@ -259,6 +259,76 @@ export_results_from_processor <- function(processor) {
 
 
 
+#' Prepare data for model training
+#'
+#' This function splits the data into training and testing sets.
+#'
+#' @param data The dataset to be split
+#' @return A list containing the training and testing sets
+#' @importFrom rsample initial_split training testing
+#' @export
+prepare_data <- function(data) {
+  split <- rsample::initial_split(data)
+  train_data <- rsample::training(split)
+  test_data <- rsample::testing(split)
+  list(train_data = train_data, test_data = test_data)
+}
+
+#' Create model specification
+#'
+#' This function creates a model specification for the XGBoost model.
+#'
+#' @param n_trees Number of trees for the model
+#' @param tree_depth Maximum tree depth
+#' @param min_n Minimum observations in terminal nodes
+#' @param loss_reduction Minimum loss reduction to make further splits
+#' @param sample_size Fraction of the training set to sample
+#' @param mtry Number of variables to sample at each split
+#' @param learn_rate Learning rate
+#' @return A model specification for XGBoost
+#' @importFrom parsnip boost_tree set_engine set_mode
+#' @export
+create_model_spec <- function(n_trees = 2000, tree_depth = tune(), min_n = tune(), loss_reduction = tune(),
+                              sample_size = sample_prop(), mtry = tune(), learn_rate = tune()) {
+  parsnip::boost_tree(trees = n_trees,
+                      tree_depth = tree_depth,
+                      min_n = min_n,
+                      loss_reduction = loss_reduction,
+                      sample_size = sample_size,
+                      mtry = mtry,
+                      learn_rate = learn_rate) %>%
+    parsnip::set_engine("xgboost") %>%
+    parsnip::set_mode("regression")
+}
+
+#' Create a workflow
+#'
+#' This function creates a workflow for training an XGBoost model.
+#'
+#' @param formula The formula for the model
+#' @param model_spec The model specification
+#' @return A workflow for training the model
+#' @importFrom workflows workflow add_formula add_model
+#' @export
+create_workflow <- function(formula, model_spec) {
+  workflows::workflow() %>%
+    workflows::add_formula(formula) %>%
+    workflows::add_model(model_spec)
+}
+
+#' Create cross-validation folds
+#'
+#' This function creates cross-validation folds for model training.
+#'
+#' @param data The dataset
+#' @param folds Number of folds for cross-validation
+#' @param repeats Number of repeats for cross-validation
+#' @return Cross-validation folds
+#' @importFrom rsample vfold_cv
+#' @export
+create_cv_folds <- function(data, folds = 5, repeats = 2) {
+  rsample::vfold_cv(data, v = folds, repeats = repeats)
+}
 
 #' Train XGBoost model with custom grid
 #'
@@ -269,8 +339,7 @@ export_results_from_processor <- function(processor) {
 #' @param grid Custom grid for hyperparameter tuning
 #' @param folds Number of folds for cross-validation
 #' @param repeats Number of repeats for cross-validation
-#' @param strata Variable for stratified sampling
-#' @param n_trees Number of trees
+#' @param n_trees Number of trees for the model
 #' @param tree_depth Maximum tree depth
 #' @param min_n Minimum observations in terminal nodes
 #' @param loss_reduction Minimum loss reduction to make further splits
@@ -279,15 +348,15 @@ export_results_from_processor <- function(processor) {
 #' @param learn_rate Learning rate
 #' @param seed_count Number of seed values to use
 #' @param seed_for_data Seed value for data preparation
-#' @return Trained XGBoost model
-#' @importFrom parsnip boost_tree
+#' @return Trained XGBoost model and testing data
+#' @importFrom parsnip boost_tree set_engine set_mode
 #' @importFrom tune control_grid finalize_model select_best tune_grid
-#' @importFrom rsample vfold_cv
-#' @importFrom workflows workflow
+#' @importFrom rsample initial_split training testing vfold_cv
+#' @importFrom workflows workflow add_formula add_model
 #' @importFrom doParallel registerDoParallel
 #' @import xgboost
 #' @export
-train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, strata = NULL, n_trees = 2000,
+train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, n_trees = 2000,
                                 tree_depth = tune(), min_n = tune(), loss_reduction = tune(),
                                 sample_size = sample_prop(), mtry = tune(), learn_rate = tune(),
                                 seed_count = 1, seed_for_data = 60723) {
@@ -299,10 +368,13 @@ train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, str
   require(xgboost)
   require(base)
 
-  # Prepare data
+  # Set seed for reproducibility
   set.seed(seed_for_data)
+
+  # Split data into training and testing sets
   split <- rsample::initial_split(data)
   train_data <- rsample::training(split)
+  test_data <- rsample::testing(split)
 
   # Set up model specification
   xgb_spec <- parsnip::boost_tree(trees = n_trees,
@@ -322,20 +394,20 @@ train_xgboost_model <- function(data, formula, grid, folds = 5, repeats = 2, str
 
   # Create folds
   seeds <- sample.int(1e6, seed_count)
-  folds <- lapply(seeds, function(seed) {
+  resamples <- lapply(seeds, function(seed) {
     set.seed(seed)
-    rsample::vfold_cv(train_data, v = folds, repeats = repeats, strata = strata)
+    rsample::vfold_cv(train_data, v = folds, repeats = repeats)
   })
 
   # Tune grid
   doParallel::registerDoParallel()
-  res <- tune::tune_grid(xgb_workflow, resamples = folds, grid = grid, control = control_grid(save_pred = TRUE))
+  res <- tune::tune_grid(xgb_workflow, resamples = resamples, grid = grid, control = control_grid(save_pred = TRUE))
 
   # Train model with best parameters
   best_params <- tune::select_best(res, "rmse")
   trained_model <- tune::finalize_model(xgb_spec, best_params)
 
-  return(trained_model)
+  return(list(trained_model = trained_model, test_data = test_data))
 }
 
 

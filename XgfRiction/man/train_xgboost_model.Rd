@@ -10,7 +10,6 @@ train_xgboost_model(
   grid,
   folds = 5,
   repeats = 2,
-  strata = NULL,
   n_trees = 2000,
   tree_depth = tune(),
   min_n = tune(),
@@ -33,9 +32,7 @@ train_xgboost_model(
 
 \item{repeats}{Number of repeats for cross-validation}
 
-\item{strata}{Variable for stratified sampling}
-
-\item{n_trees}{Number of trees}
+\item{n_trees}{Number of trees for the model}
 
 \item{tree_depth}{Maximum tree depth}
 
@@ -54,7 +51,7 @@ train_xgboost_model(
 \item{seed_for_data}{Seed value for data preparation}
 }
 \value{
-Trained XGBoost model
+Trained XGBoost model and testing data
 }
 \description{
 This function trains an XGBoost model using the provided data and a custom grid for hyperparameter tuning.

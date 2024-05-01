@@ -133,7 +133,7 @@ user_class <- initialize_user_class_processor(
 
 # IQR Filtering Data
 
-This example demonstrates how to use the function to perform IQR filtering on specified variables in a data frame and update an
+This example demonstrates how to use the function to perform IQR filtering on specified variables in a data frame and update the class with this additional filtering.
 
 ```{r}
 # Perform IQR filtering on specified variables
@@ -155,10 +155,10 @@ To perform gap-filling of meteorological data for an XGFrictionProcessor object,
 
 ```{r}
 # Define the variables to gap-fill
-# variables_to_fill <- c("Tair", "VPD", "Rg")
+#variables_to_fill <- c("Tair", "VPD", "Rg")
 
 # Perform gap-filling of specified variables
-# gap_filled_processor <- gap_fill_met_data(user_class, variables_to_fill, fill_all = FALSE)
+#gap_filled_processor <- gap_fill_met_data(user_class, variables_to_fill, fill_all = FALSE)
 
 # The gap-filled processor object can now be used for further processing
 
@@ -207,10 +207,53 @@ print(uStarSuffixes)
 # Gap-Filling after uStar distribution selection and ustar filtering
 
 ```{r}
-user_class$se('NEE', uStarTh = uStarThAnnual, uStarSuffixes =  uStarSuffixes, FillAll = TRUE)
+uStarThSingle <- uStarThAnnual[1, 1]
 
-grep("NEE_.*_f$",names(Bartlett.2004.2022.IQR$sExportResults())
+user_class$sMDSGapFillAfterUstar('NEE', uStarTh = uStarThSingle, FillAll = TRUE)
+
+
+grep("NEE_.*_f$",names(user_class$sExportResults())
      , value = TRUE)
-grep("NEE_.*_fsd$",names(Bartlett.2004.2022.IQR$sExportResults())
+grep("NEE_.*_fsd$",names(user_class$sExportResults())
      , value = TRUE)
+
 ```
+
+
+
+# Gap-Filling using XgBoost after uStar filtering using XgBoost instead of MDS methods
+
+```{r}
+# Define your single uStar threshold value from the above code
+ustar_threshold <- 0.2
+
+# Select predictors and response variable
+predictors <- c("TIMESTAMP_START", "TIMESTAMP_END", "Tair", "TS_F_1_2_1", "Rg", 
+                "Rh", "PPFD_DIF_1_1_1", "PPFD_DIR_1_1_1", "NETRAD_1_1_1", 
+                "SWC_1_1_1", "SWC_4_1_1", "VPD")
+response <- "NEE"
+
+# Filtered data containing only the necessary columns
+filtered_data <- ExampleData[ExampleData$Ustar >= ustar_threshold, c(predictors, response)]
+
+# Define formula for the model
+formula <- reformulate(predictors, response)
+
+# Define custom grid for hyperparameter tuning
+grid <- expand.grid(
+  tree_depth = c(3, 6, 9),
+  min_n = c(5, 10, 15),
+  loss_reduction = c(0.01, 0.1, 0.2),
+  sample_size = c(0.5, 0.7, 0.9),
+  mtry = c(3, 5, 7),
+  learn_rate = c(0.01, 0.1, 0.2)
+)
+
+# Train XGBoost model
+trained_model <- train_xgboost_model(data = filtered_data, formula = formula, grid = grid)
+
+
+
+
+```
+
