@@ -22,5 +22,5 @@ Imports:
     data.table,
     doParallel,
     dplyr
-    
+VignetteBuilder: knitr
    
