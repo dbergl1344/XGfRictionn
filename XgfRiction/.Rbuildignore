@@ -5,3 +5,4 @@
 ^pkgdown$
 ^docs$
 ^README\.Rmd$
+^_pkgdown\.yml$
